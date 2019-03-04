@@ -330,7 +330,7 @@ func (module *KafkaClient) decodeKeyAndOffset(keyBuffer *bytes.Buffer, value []b
 	}
 
 	switch valueVersion {
-	case 0, 1:
+	case 0, 1, 2:
 		module.decodeAndSendOffset(offsetKey, valueBuffer, offsetLogger, decodeOffsetValueV0)
 	case 3:
 		module.decodeAndSendOffset(offsetKey, valueBuffer, offsetLogger, decodeOffsetValueV3)
