@@ -66,6 +66,7 @@ type metadataHeader struct {
 	Generation   int32
 	Protocol     string
 	Leader       string
+	CurrentStateTimestamp int64
 }
 type metadataMember struct {
 	MemberID         string
@@ -392,7 +393,7 @@ func (module *KafkaClient) decodeGroupMetadata(keyBuffer *bytes.Buffer, value []
 	}
 
 	switch valueVersion {
-	case 0, 1:
+	case 0, 1, 2:
 		module.decodeAndSendGroupMetadata(valueVersion, group, valueBuffer, logger.With(
 			zap.String("message_type", "metadata"),
 			zap.String("group", group),
@@ -408,7 +409,7 @@ func (module *KafkaClient) decodeGroupMetadata(keyBuffer *bytes.Buffer, value []
 }
 
 func (module *KafkaClient) decodeAndSendGroupMetadata(valueVersion int16, group string, valueBuffer *bytes.Buffer, logger *zap.Logger) {
-	metadataHeader, errorAt := decodeMetadataValueHeader(valueBuffer)
+	metadataHeader, errorAt := decodeMetadataValueHeader(valueVersion, valueBuffer)
 	metadataLogger := logger.With(
 		zap.String("protocol_type", metadataHeader.ProtocolType),
 		zap.Int32("generation", metadataHeader.Generation),
@@ -469,7 +470,7 @@ func (module *KafkaClient) decodeAndSendGroupMetadata(valueVersion int16, group 
 	}
 }
 
-func decodeMetadataValueHeader(buf *bytes.Buffer) (metadataHeader, string) {
+func decodeMetadataValueHeader(valueVersion int16, buf *bytes.Buffer) (metadataHeader, string) {
 	var err error
 	metadataHeader := metadataHeader{}
 
@@ -488,6 +489,13 @@ func decodeMetadataValueHeader(buf *bytes.Buffer) (metadataHeader, string) {
 	metadataHeader.Leader, err = readString(buf)
 	if err != nil {
 		return metadataHeader, "leader"
+	}
+
+	if valueVersion == 2 {
+		err = binary.Read(buf, binary.BigEndian, &metadataHeader.CurrentStateTimestamp)
+		if err != nil {
+			return metadataHeader, "current_state_timestamp"
+		}
 	}
 	return metadataHeader, ""
 }
